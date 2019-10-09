@@ -36,28 +36,29 @@ module.exports = (buildMode, devServer, dirname, { masterPath, entryUnit, revisi
         {
           test: /\.m?js$/,
           use: [
-            {
-              loader: 'air-m2-builder2/src/webpack-strip-block.js',
-              options: {
-                start: '<@debug>',
-                end: '</@debug>'
-              }
-            },
-            {
-              loader: 'babel-loader',
-              options: {
-                presets: [
-                  [
-                    '@babel/preset-env',
-                    {
-                      targets: {
-                        browsers: ['last 2 versions', 'ie >= 8']
-                      }
-                    }
-                  ]
-                ]
-              }
-            }
+            // todo temporary remove loaders
+            // {
+            //   loader: 'air-m2-builder2/src/webpack-strip-block.js',
+            //   options: {
+            //     start: '<@debug>',
+            //     end: '</@debug>'
+            //   }
+            // },
+            // {
+            //   loader: 'babel-loader',
+            //   options: {
+            //     presets: [
+            //       [
+            //         '@babel/preset-env',
+            //         {
+            //           targets: {
+            //             browsers: ['last 2 versions', 'ie >= 8']
+            //           }
+            //         }
+            //       ]
+            //     ]
+            //   }
+            // }
           ]
         }
       ]
