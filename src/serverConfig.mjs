@@ -42,6 +42,8 @@ export default function serverConfig (options = {}) {
   let port = PORT;
   let master = null;
   const latency = [];
+  // todo temporary hack
+  master = 'gamex-builder';
   if (existsSync(gameConfigPath)) {
     const json = JSON.parse(readFileSync(gameConfigPath, 'utf8'));
     port = json.port || port;
