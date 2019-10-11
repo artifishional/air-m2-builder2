@@ -4,8 +4,10 @@ import { Utils, UtilsDev } from '../utils.mjs';
 import serverConfig from "../serverConfig.mjs";
 import App from "./app";
 import fs from 'fs';
+import path from 'path';
+import {CompileSource} from "../compile";
 
-export default function after ({path}, {url: relativePath}) {
+export default function after ({path: module}, {url: relativePath}) {
   return new Promise(resolve => {
     const {
       dirname,
@@ -14,9 +16,10 @@ export default function after ({path}, {url: relativePath}) {
       optional,
       latency,
       execute,
-      devServer,
-      buildMode
     } = serverConfig({ execute: UtilsDev.execute });
+
+    const buildMode = 'development';
+    const devServer = true;
 
     const app = new App({ execute });
     const { requester, installer } = app;
@@ -26,7 +29,7 @@ export default function after ({path}, {url: relativePath}) {
         if (method === 'data') {
           resolve(source);
         } else if (method === 'file') {
-          fs.readFile(source, (err, source) => resolve(source));
+          fs.readFile(source, (err, fileContent) => resolve(fileContent.toString()));
         }
       } else {
         if (method === 'data') {
@@ -35,13 +38,13 @@ export default function after ({path}, {url: relativePath}) {
           }, delay);
         } else if (method === 'file') {
           setTimeout(() => {
-            fs.readFile(source, (err, source) => resolve(source));
+            fs.readFile(source, (err, fileContent) => resolve(fileContent.toString()));
           }, delay);
         }
       }
     }
 
-    const module = path.replace(/^./, '').replace(/\//g, '');
+    module = module.replace(/^./, '').replace(/\//g, '');
     const request = new Request({ module, relativePath, dirname, units, currentModule, optional, execute, buildMode, devServer });
 
     const utils = new Utils();
@@ -83,9 +86,20 @@ export default function after ({path}, {url: relativePath}) {
           .then(htmlText => {
             sendResolve({ source: htmlText, method: 'data', delay });
           });
+      } else if (path.extname(filePath) === '.js') {
+        const compiledFileDir = `${dirname}/node_modules/${currentModule}/m2unit`;
+        new CompileSource({module, buildMode, }, {
+          entry: filePath,
+          path: compiledFileDir,
+        })
+          .run()
+          .then(() => {
+            sendResolve({ source: `${compiledFileDir}/index.js`, method: 'file', delay });
+          });
       } else {
         sendResolve({ source: filePath, method: 'file', delay });
       }
+
       return;
     }
     if (request.error) {
