@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import {CompileSource} from "../compile";
 
-export default function after ({path: module}, {url: relativePath}) {
+export default function after ({path: pathStr}, {url}) {
   return new Promise(resolve => {
     const {
       dirname,
@@ -44,12 +44,11 @@ export default function after ({path: module}, {url: relativePath}) {
       }
     }
 
-    module = module.replace(/^./, '').replace(/\//g, '');
-    const request = new Request({ module, relativePath, dirname, units, currentModule, optional, execute, buildMode, devServer });
+    const request = new Request({ url: pathStr + url, dirname, units, currentModule, optional, execute, buildMode, devServer });
 
     const utils = new Utils();
     const { resolvePath } = request.options;
-    const filePath = utils.removeQueryString(`${dirname}/src/${relativePath}`);
+    const filePath = utils.removeQueryString(`${dirname}/src/${request.options.relativePath}`);
 
     let i = 0;
     let match = null;
@@ -88,7 +87,7 @@ export default function after ({path: module}, {url: relativePath}) {
           });
       } else if (path.extname(filePath) === '.js') {
         const compiledFileDir = `${dirname}/node_modules/${currentModule}/m2unit`;
-        new CompileSource({module, buildMode, }, {
+        new CompileSource({module: request.options.module, buildMode, }, {
           entry: filePath,
           path: compiledFileDir,
         })
@@ -115,7 +114,7 @@ export default function after ({path: module}, {url: relativePath}) {
         return sendResolve({ source: utils.removeQueryString(resolvePath), method: 'file', delay });
       })
       .catch(error => {
-        installer.deleteInstance(`${module}/${relativePath}`);
+        installer.deleteInstance(`${request.options.module}/${request.options.relativePath}`);
         sendResolve({ source: error, method: 'data', delay });
       });
   });
