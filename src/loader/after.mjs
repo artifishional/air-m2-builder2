@@ -29,7 +29,7 @@ export default function after ({path: pathStr}, {url}) {
         if (method === 'data') {
           resolve(source);
         } else if (method === 'file') {
-          fs.readFile(source, (err, fileContent) => resolve(fileContent.toString()));
+          fs.readFile(source, (err, fileContent) => resolve(fileContent));
         }
       } else {
         if (method === 'data') {
@@ -38,7 +38,7 @@ export default function after ({path: pathStr}, {url}) {
           }, delay);
         } else if (method === 'file') {
           setTimeout(() => {
-            fs.readFile(source, (err, fileContent) => resolve(fileContent.toString()));
+            fs.readFile(source, (err, fileContent) => resolve(fileContent));
           }, delay);
         }
       }
