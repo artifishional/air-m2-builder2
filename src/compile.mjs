@@ -134,7 +134,7 @@ class CompileHtml {
             compiler.run((error, stats) => {
               if (stats.hasErrors()) {
                 console.log(`ERROR: ${compiler.options.entry} compile error`);
-                // todo выяснить почему не компилится сасс
+                // todo выяснить почему не компилится js
                 // rej(`ERROR '${compiler.options.entry}': compile error`);
                 res();
                 return;

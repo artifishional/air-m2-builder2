@@ -52,7 +52,16 @@ export default class CompileSass {
     this.scss.forEach(({ data }, i) => {
       promises.push(
         new Promise(res => {
-          sass.render({ data }, (err, result) => {
+          sass.render({
+            data,
+            importer(url, prev) {
+              if (url.indexOf('file:///') !== -1) {
+                return {file: url.replace('file:///', '')};
+              } else {
+                return {file: path.resolve(path.dirname(prev), url).replace(/\\/g, '/')};
+              }
+            }
+          }, (err, result) => {
             if (err) {
               console.log(`Sass compile error:\n${err}`);
               this.css[i] = this.scss[i].data;
