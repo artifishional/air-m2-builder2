@@ -5,7 +5,6 @@ import crypto from 'crypto';
 import { dirname, normalize } from 'path';
 import glob from 'glob';
 import fs from 'fs';
-import cssToAst from './css-to-ast.mjs';
 
 class CompileResource {
   run () {
@@ -168,11 +167,6 @@ class CompileHtml {
           .replace(/<\/view-source>/gi, '</script>')
           .replace(/<stream-source>/gi, '<script data-source-type="stream-source">')
           .replace(/<\/stream-source>/gi, '</script>');
-
-        const asts = cssToAst({htmlText: this.htmlText});
-        asts.reverse().forEach(ast => {
-          this.htmlText = this.htmlText.slice(0, ast.idx) + ast.data + this.htmlText.slice(ast.idx + ast.len);
-        });
 
         glob(`${this.buildDir}/.tmp*.js`, {}, (err, files) => {
           if (err) throw err;
