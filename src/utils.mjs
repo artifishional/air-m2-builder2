@@ -1,133 +1,162 @@
-import { readdirSync, readFileSync, statSync } from 'fs';
-import path from 'path';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
+import { dirname, extname, isAbsolute, resolve } from 'path';
 import copyfiles from 'copyfiles';
 import { exec } from 'child_process';
 import { CompileHtml } from './compile.mjs';
 import glob from 'glob';
+import crypto from 'crypto';
 
-class Utils {
-  getRandomInt (max, min = 0) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+const importExportRegex = /(?:import|export)\s(?:["'\s]*[\w*{}\$\n\r\t, ]+from\s*)?["'\s]*([^"']+)["'\s]/gm;
+
+export const getRandomInt = (max, min = 0) => Math.floor(Math.random() * (max - min + 1)) + min;
+export const getUp = (from) => from.replace(/\\/g, '/').slice(0, from.indexOf('**')).match(/\//g).length;
+export const getFrom = (filename) => existsSync(filename) ? JSON.parse(readFileSync(filename, 'utf8'))['_from'] : false;
+export const removeQueryString = (str) => ~str.indexOf('?') ? str.substring(0, str.indexOf('?')) : str;
+
+export const getAdditional = (filename, requires, all = false) => {
+  let optDep;
+  if (!all) {
+    optDep = JSON.parse(readFileSync(filename, 'utf8'))[requires];
+  } else {
+    optDep = JSON.parse(readFileSync(filename, 'utf8'));
   }
+  return optDep == null ? optDep : Object.keys(optDep).map(key => ({ module: key, source: optDep[key] }));
+};
 
-  getAdditional (filename, requires, all = false) {
-    let optDep;
-    if (!all) {
-      optDep = JSON.parse(readFileSync(filename, 'utf8'))[requires];
-    } else {
-      optDep = JSON.parse(readFileSync(filename, 'utf8'));
+export const addUnique = (opt, add) => {
+  const optMap = [...opt.values()].map(e => e.module);
+  add.forEach(e => {
+    if (!optMap.includes(e.module)) {
+      opt.add(e);
     }
-    return optDep == null ? optDep : Object.keys(optDep).map(key => ({ module: key, source: optDep[key] }));
-  }
+  });
+};
 
-  addUnique (opt, add) {
-    const optMap = [...opt.values()].map(e => e.module);
-    add.forEach(e => {
-      if (!optMap.includes(e.module)) {
-        opt.add(e);
+export const copyFiles = ({ from, to, up, exclude = [] }) => new Promise(res => {
+  copyfiles([from, to], { up, exclude }, err => {
+    if (err) throw err;
+    res();
+  });
+});
+
+export const getAllFiles = (dir, extensions = [], includes = true, filelist = []) => {
+  const files = readdirSync(dir);
+  files.forEach(file => {
+    const fileFullPath = `${dir}${/\/$/.test(dir) ? '' : '/'}${file}`;
+    if (statSync(fileFullPath).isDirectory()) {
+      filelist = this.getAllFiles(`${fileFullPath}/`, extensions, includes, filelist);
+    } else {
+      if (
+        extensions.length === 0 ||
+        (extensions.includes(extname(file)) && includes) ||
+        (!extensions.includes(extname(file)) && !includes)
+      ) {
+        filelist.push(fileFullPath);
       }
-    });
-  }
+    }
+  });
 
-  copyFiles ({ from, to, up, exclude = [] }) {
-    return new Promise(res => {
-      copyfiles([from, to], { up, exclude }, err => {
-        if (err) throw err;
-        res();
+  return filelist;
+};
+
+export const importPathResolve = (filePath) => (data) => {
+  const sourceDir = dirname(filePath);
+  return data.replace(importExportRegex, (match, importPath) => {
+    let res = match;
+    if (~importPath.indexOf('./')) {
+      res = match.replace(importPath, resolve(`${sourceDir}/${importPath}`));
+      res = res.replace(/\\/g, '/');
+    }
+    return res;
+  });
+};
+
+export const prodCopyCompile = ({ from, to, buildMode, module }) => new Promise((resolve, reject) => {
+  copyFiles({
+    from,
+    to,
+    up: getUp(from),
+    exclude: [`${from}.html`, `${from}.js`]
+  }).then(() => {
+    const promises = [];
+    glob(`${from}.html`, {}, (err, files) => {
+      if (err) reject(err);
+      files.map(file => {
+        const compileOpt = {
+          buildMode,
+          inputFile: file,
+          outputFile: `${to}/${file.substring(from.replace('/**/*', '').length)}`,
+          importPathResolve: importPathResolve(file),
+          module
+        };
+        promises.push(new CompileHtml(compileOpt).run());
       });
     });
-  }
-
-  getUp (from) {
-    return from
-      .replace(/\\/g, '/')
-      .slice(0, from.indexOf('**'))
-      .match(/\//g).length;
-  }
-
-  getExtension (str) {
-    const match = str.match(/\.\w+$/g);
-
-    return match ? match[0] : null;
-  }
-
-  removeQueryString (str) {
-    return ~str.indexOf('?') ? str.substring(0, str.indexOf('?')) : str;
-  }
-
-  getAllFiles (dir, extensions = [], includes = true, filelist = []) {
-    const files = readdirSync(dir);
-    files.forEach(file => {
-      const fileFullPath = `${dir}${/\/$/.test(dir) ? '' : '/'}${file}`;
-      if (statSync(fileFullPath).isDirectory()) {
-        filelist = this.getAllFiles(`${fileFullPath}/`, extensions, includes, filelist);
-      } else {
-        if (
-          extensions.length === 0 ||
-          (extensions.includes(this.getExtension(file)) && includes) ||
-          (!extensions.includes(this.getExtension(file)) && !includes)
-        ) {
-          filelist.push(fileFullPath);
-        }
+    Promise.all(promises).then(() => {
+      if (promises.length > 0) {
+        console.log(`copy/compile_html: ${module} -- ok`);
       }
+      resolve();
     });
+  });
+});
 
-    return filelist;
-  }
+const sassExtensions = ['', '.sass', '.scss'];
+const jsExtenstions = ['', '.js', '.mjs', '.jsx'];
+const importJSRegex = /(?<!@)import\s(?:["'\s]*[\w*{}\$\n\r\t, ]+from\s*)?["'\s]*([^"']+)["'\s]/gm;
+const importSassRegex = /(?:@import ["'])(\S+)(?:["'];)/g;
 
-  prodCopyCompile ({ from, to, buildMode }) {
-    return new Promise((resolve, reject) => {
-      this.copyFiles({
-        from,
-        to,
-        up: this.getUp(from),
-        exclude: [`${from}.html`, `${from}.js`]
-      }).then(() => {
-        const promises = [];
-        glob(`${from}.html`, {}, (err, files) => {
-          if (err) reject(err);
-          files.map(file => {
-            const compileOpt = {
-              buildMode,
-              inputFile: file,
-              outputFile: `${to}/${file.substring(from.replace('/**/*', '').length)}`
-            };
-            promises.push(new CompileHtml(compileOpt).run());
-          });
-        });
-        Promise.all(promises).then(() => {
-          if (promises.length > 0) {
-            console.log(`copy/compile_html: ${module} -- ok`);
+export const cacheHash = (source, { sourcePath, type, recursive = false }) => {
+  let importSource;
+  const result = crypto.createHash('md5').update(source);
+
+  if (recursive) {
+    const regex = type === 'scss' ? importSassRegex : importJSRegex;
+    const exts = type === 'scss' ? sassExtensions : jsExtenstions;
+    const addUnderscore = (path) => importSource.replace(/([\/\\])(\w+)$/gi, '$1_$2');
+
+    const matches = [...source.matchAll(regex)]
+      .filter((match) => match[1][0] === '.' || isAbsolute(match[1]));
+
+    if (matches && matches.length) {
+      matches
+        .map((match) => {
+          importSource = isAbsolute(match[1]) ? match[1] : resolve(sourcePath, match[1]);
+
+          if (existsSync(importSource) && statSync(importSource).isDirectory()) {
+            importSource = resolve(importSource, 'index');
           }
-          resolve();
-        });
-      });
-    });
-  }
-}
 
-class UtilsDev extends Utils {
-  static execute ({ pkg }) {
-    return new Promise(res => {
-      const execString = `npm i --no-save --no-optional ${pkg}`;
-      exec(execString, error => {
-        res(error);
-      });
-    });
-  }
-}
+          for (const ext of exts) {
+            if (existsSync(`${importSource}${ext}`) && statSync(`${importSource}${ext}`).isFile()) {
+              const source = readFileSync(`${importSource}${ext}`);
+              const hash = cacheHash(source.toString(), { sourcePath: dirname(importSource), type });
+              return hash;
+            }
+          }
 
-class UtilsTest extends Utils {
-  execute ({ pkg, dirname }) {
-    return new Promise(res => {
-      const testDir = path.resolve(path.dirname(''));
-      const unit = pkg.match(/[-\w]+$/)[0];
-      const from = `${testDir}/${pkg}/**/*`;
-      super.copyFiles({ from, to: `${dirname}/node_modules/${unit}`, up: super.getUp(from) }).then(error => {
-        res(error);
-      });
-    });
+          if (type === 'scss') {
+            importSource = addUnderscore(importSource);
+            for (const ext of exts) {
+              if (existsSync(`${importSource}${ext}`) && statSync(`${importSource}${ext}`).isFile()) {
+                const source = readFileSync(`${importSource}${ext}`);
+                const hash = cacheHash(source.toString(), { sourcePath: dirname(importSource), type });
+                return hash;
+              }
+            }
+          }
+        })
+        .filter(Boolean)
+        .map((hash) => result.update(hash));
+    }
   }
-}
+  return result.digest('hex');
 
-export { Utils, UtilsDev, UtilsTest };
+};
+
+export const executeDev = ({ pkg }) => new Promise(res => {
+  const execString = `npm i --no-save --no-optional ${pkg}`;
+  exec(execString, error => {
+    res(error);
+  });
+});

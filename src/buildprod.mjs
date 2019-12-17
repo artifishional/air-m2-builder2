@@ -1,9 +1,7 @@
-import { Utils } from './utils.mjs';
+import { prodCopyCompile } from './utils.mjs';
 import { CompileSource } from './compile.mjs';
 import Install from './install.mjs';
 import RequestOpt from './request.mjs';
-
-const utils = new Utils();
 
 export default class BuildProd {
   constructor (opt) {
@@ -37,13 +35,12 @@ export default class BuildProd {
       console.log(request.error);
       this.next();
     } else if (request.mode === 'currentModule') {
-      utils
-        .prodCopyCompile({
-          module: currentModule,
-          from: `${dirname}/src/**/*`,
-          to: `${dirname}/dist/${units.dirS}/${currentModule}`,
-          buildMode
-        })
+      prodCopyCompile({
+        module: currentModule,
+        from: `${dirname}/src/**/*`,
+        to: `${dirname}/dist/${units.dirS}/${currentModule}`,
+        buildMode
+      })
         .then(() => {
           const opt = request.options;
           const path = `${dirname}/dist/${opt.units.dirS}/${opt.module}`;
@@ -55,13 +52,12 @@ export default class BuildProd {
     } else {
       const opt = request.options;
       this.install.go(opt).then(() => {
-        utils
-          .prodCopyCompile({
-            module: opt.module,
-            from: `${dirname}/node_modules/${opt.module}/src/**/*`,
-            to: `${dirname}/dist/${units.dirS}/${opt.module}`,
-            buildMode
-          })
+        prodCopyCompile({
+          module: opt.module,
+          from: `${dirname}/node_modules/${opt.module}/src/**/*`,
+          to: `${dirname}/dist/${units.dirS}/${opt.module}`,
+          buildMode
+        })
           .then(() => {
             this.next();
           });

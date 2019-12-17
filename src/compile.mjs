@@ -1,10 +1,20 @@
 import webpack from 'webpack';
 import webpackCompileConfig from '../webpack-compiler.config.mjs';
-import CompileSass from './compileSass.mjs';
-import crypto from 'crypto';
-import { dirname, normalize } from 'path';
-import glob from 'glob';
+import { dirname, normalize, relative, resolve, sep } from 'path';
 import fs from 'fs';
+import glob from 'glob';
+import sass from 'sass';
+import postcss from 'postcss';
+import autoprefixer from 'autoprefixer';
+import csstree from 'css-tree';
+import { cacheHash } from './utils.mjs';
+
+const SOURCE_TYPES = ['js', 'jsx', 'scss'];
+const REGEXPS = {
+  js: ['(?<=<script>)([\\s\\S]*?)(?=<\\/script>)', '(?<=<view-source>)([\\s\\S]*?)(?=<\\/view-source>)', '(?<=<stream-source>)([\\s\\S]*?)(?=<\\/stream-source>)'],
+  jsx: ['(?<=<react-source>)([\\s\\S]*?)(?=<\/react-source>)'],
+  scss: [`(?<=<style[a-z0-9="' ]*type\\s*=\\s*["']?\\s*text\\/scss\\s*["']?[a-z0-9="' ]*>)([\\s\\S]*?)(?=<\\/style>)`]
+};
 
 class CompileResource {
   run () {
@@ -16,7 +26,6 @@ class CompileResource {
 
 class CompileSource {
   constructor (opt, { path, entry }) {
-    // console.log(opt, path, entry)
     this.opt = opt;
 
     const compileOpt = {
@@ -50,137 +59,220 @@ class CompileSource {
 }
 
 class CompileHtml {
-  constructor ({ buildMode, inputFile, outputFile, importPathResolve = null }) {
-
+  constructor ({ buildMode, module, cacheDir = false, inputFile, outputFile, importPathResolve = null }) {
     this.inputFile = inputFile;
     this.outputFile = outputFile;
+    this.buildMode = buildMode;
+    this.module = module;
     this.buildDir = ~inputFile.indexOf('node_modules') ? dirname(inputFile) : dirname(outputFile);
-    this.htmlText = fs.readFileSync(inputFile, 'utf8');
+    this.cacheDir = cacheDir;
+    this.importPathResolve = importPathResolve;
+  }
 
-    this.config = {
-      configs: [],
-      scripts: [],
-      sass: new CompileSass({ htmlText: this.htmlText, filePath: dirname(inputFile) }),
+  configureCompiler ({ htmlSource, source, type, start, length }) {
+    const { buildMode, buildDir, cacheDir } = this;
+
+    if (['js', 'jsx'].includes(type) && this.importPathResolve) {
+      source = this.importPathResolve(source);
+    }
+
+    const hash = cacheHash(source, { sourcePath: buildDir, type, recursive: !!cacheDir });
+    const filename = `.tmp-${hash}.${type}`;
+    const filenameBundle = `.tmp-${hash}-bundle.compiled`;
+
+    const meta = {
+      file: `${buildDir}/${filenameBundle}`,
+      start,
+      length
     };
 
-    const jsSources = ((text, ...regexp) => {
-      const js = [];
-      regexp.forEach(reg => {
-        const match = text.match(new RegExp(reg, 'gi'));
-        if (match !== null) {
-          js.push(...match);
-        }
+    if (cacheDir && fs.existsSync(`${cacheDir}/${filenameBundle}`)) {
+      return new Promise((resolve) => {
+        const data = fs.readFileSync(`${cacheDir}/${filenameBundle}`);
+        resolve({ ...meta, data });
       });
+    } else {
+      if (!fs.existsSync(buildDir)) {
+        fs.mkdirSync(buildDir, { recursive: true });
+      }
 
-      return js;
-    })(
-      this.htmlText,
-      '(?<=<script>)([\\s\\S]*?)(?=<\\/script>)',
-      '(?<=<view-source>)([\\s\\S]*?)(?=<\\/view-source>)',
-      '(?<=<stream-source>)([\\s\\S]*?)(?=<\\/stream-source>)'
-    );
+      if (type === 'scss') {
+        return new Promise((resolve) => {
+          sass.render({ data: this.processSassImports(source) }, (err, result) => {
+            if (err) {
+              console.log(`Sass compile error:\n${err}`, buildDir);
+            } else {
+              postcss([autoprefixer])
+                .process(result.css.toString(), { from: undefined })
+                .then(({ css }) => {
+                  css = this.processCssPath(css);
+                  css = this.processCssResources(css);
+                  if (cacheDir) {
+                    fs.writeFileSync(`${cacheDir}/${filenameBundle}`, css, 'utf8');
+                  }
+                  resolve({ ...meta, data: css });
+                });
+            }
+          });
+        });
+      } else if (['js', 'jsx'].includes(type)) {
 
-    const {
-      configs,
-      scripts,
-    } = this.config;
-    if (jsSources !== null) {
-      jsSources.forEach((data, i) => {
-        const hash = crypto.createHash('md5').update(data).digest('hex');
-        const filename = `.tmp-${hash}.js`;
-        const filenameBundle = `.tmp-${hash}-bundle.js`;
+        fs.writeFileSync(`${buildDir}/${filename}`, source, 'utf8');
 
-        if (!fs.existsSync(this.buildDir)) {
-          fs.mkdirSync(this.buildDir, { recursive: true });
-        }
-
-        scripts.push({
-          file: `${this.buildDir}/${filenameBundle}`,
-          idx: this.htmlText.indexOf(data),
-          len: data.length
+        const config = webpackCompileConfig({
+          buildMode,
+          path: normalize(buildDir),
+          entry: `${buildDir}/${filename}`,
+          filename: filenameBundle,
         });
 
-        if (importPathResolve) {
-          data = importPathResolve(data);
-        }
+        const compiler = webpack(config);
 
-        fs.writeFileSync(`${this.buildDir}/${filename}`, data, 'utf8');
-        const compileOpt = {
-          buildMode,
-          path: normalize(this.buildDir),
-          entry: `${this.buildDir}/${filename}`,
-          filename: filenameBundle,
-        };
+        return new Promise((resolve, reject) => {
+          compiler.run(async (error, stats) => {
+            if (stats.hasErrors()) {
+              console.log(`ERROR: ${compiler.options.entry} compile error`);
+              // todo выяснить почему не компилится js
+              // reject(`ERROR '${compiler.options.entry}': compile error`);
+            } else {
+              const data = fs.readFileSync(meta.file);
+              if (cacheDir) {
+                fs.writeFileSync(`${cacheDir}/${filenameBundle}`, data);
+              }
 
-        configs.push(webpackCompileConfig(compileOpt));
-      });
+              resolve({
+                ...meta,
+                data: data.toString()
+              });
+            }
+          });
+        });
+      }
     }
+  };
+
+  extractSources (htmlSource, regexps) {
+    return regexps.map((regexp) => {
+      const reg = new RegExp(regexp, 'gi');
+      const acc = [];
+      let match;
+      while ((match = reg.exec(htmlSource)) !== null) {
+        acc.push(match);
+      }
+      return acc;
+    })
+      .reduce((acc, matches) => Array.isArray(matches) ? [...acc, ...matches] : acc, [])
+      .filter(Boolean);
+  }
+
+  processSassImports (scss) {
+    return scss.replace(/(?:@import ["'])(\S+)(?:["'];)/g, (match, importPath) => {
+      // абсолютный путь до файла со стилями
+      const absoluteScssPath = resolve(dirname(this.inputFile), importPath).replace(/\\/g, '/');
+      // относительный путь между модулем и файлом со стилями
+      let rel = relative(dirname(this.inputFile), dirname(absoluteScssPath));
+      return `/* <import rel="${rel}"> */ @import "${absoluteScssPath}"; /* </import> */`;
+    });
+  }
+
+  resolveAbsoluteResourcePath (url) {
+    let filePath, rel;
+    if (this.buildMode === 'development') {
+      filePath = dirname(this.inputFile);
+      rel = relative(filePath, filePath.substr(0, filePath.indexOf('src') + 4));
+    } else {
+      filePath = dirname(this.outputFile);
+      rel = relative(filePath, filePath.substr(0, filePath.lastIndexOf(this.module) + this.module.length + 1));
+    }
+    return `${rel}${url}`;
+  }
+
+  processCssPath (css) {
+    const regex = /(?:\/\* <import rel="([^"]+)"> \*\/)([\s\S]*?)(?:\/\* <\/import> \*\/)/gm;
+    return css.replace(regex, (full, rel, match) => {
+      const ast = csstree.parse(match);
+      csstree.walk(ast, (node) => {
+        if (node.type === 'Url') {
+          const value = node.value;
+          let url = (value.type === 'Raw' ? value.value : value.value.substr(1, value.value.length - 2));
+          if (url.indexOf('data:') > -1) return;
+
+          node.value.value = url[0] === '/'
+            ? this.resolveAbsoluteResourcePath(url)
+            : `${rel}${sep}${url}`;
+
+        }
+      });
+      return csstree.generate(ast);
+    });
+  }
+
+  processCssResources (css) {
+    const ast = csstree.parse(css);
+
+    csstree.walk(ast, function (node) {
+      if ((this.rule || this.atrule && this.atrule.name === 'media') && node.type === 'Url') {
+        let url = (node.value.type === 'Raw' ? node.value.value : node.value.value.substr(1, node.value.value.length - 2));
+        if (url.indexOf('data:') === -1) {
+          node.value.value = `/* <image url="${url}"> */`;
+        }
+      }
+    });
+
+    return csstree.generate(ast);
   }
 
   run () {
-    return new Promise(resolve => {
-      const {
-        configs,
-        scripts,
-        sass,
-      } = this.config;
+    const { inputFile, outputFile } = this;
 
-      let promises = [];
+    try {
+      let htmlSource = fs.readFileSync(inputFile, 'utf8');
 
-      configs.forEach(config => {
-        const compiler = webpack(config);
-        promises.push(
-          new Promise((res, rej) => {
-            compiler.run((error, stats) => {
-              if (stats.hasErrors()) {
-                console.log(`ERROR: ${compiler.options.entry} compile error`);
-                // todo выяснить почему не компилится js
-                // rej(`ERROR '${compiler.options.entry}': compile error`);
-                res();
-                return;
-              }
-              res();
-            });
+      const sources = SOURCE_TYPES.map((type) => ({
+        type,
+        matches: this.extractSources(htmlSource, REGEXPS[type])
+      }));
+
+      const promises = sources
+        .map(({ type, matches }) => matches.map((match) => this.configureCompiler({
+            htmlSource,
+            type,
+            source: match[0],
+            start: match.index,
+            length: match[0].length
           })
-        );
-      });
-      promises = promises.concat(sass.compile());
+        ))
+        .reduce((acc, promises) => Array.isArray(promises) ? [...acc, ...promises] : acc, []);
 
-      Promise.all(promises).then(() => {
-        const { scss, css } = sass;
-        Array.prototype
-          .concat(scripts, scss)
-          .sort((a, b) => b.idx - a.idx)
-          .forEach(({ file, cssIndex, idx, len }) => {
-            let newdata;
-            if (file) {
-              newdata = fs.readFileSync(file, 'utf8');
-            } else {
-              newdata = css[cssIndex];
-            }
-            this.htmlText = this.htmlText.slice(0, idx) + newdata + this.htmlText.slice(idx + len);
+      return new Promise((resolve, reject) => {
+        Promise.all(promises).then((compiled) => {
+          const outputHtml = compiled
+            .sort((a, b) => b.start - a.start)
+            .reduce((outputHtml, { start, length, data }) => outputHtml.slice(0, start) + data + outputHtml.slice(start + length), htmlSource)
+            .replace(/\s*type\s*=\s*["']?\s*text\/scss\s*["']?\s*/g, ' ')
+            .replace(/<view-source>/gi, '<script data-source-type="view-source">')
+            .replace(/<\/view-source>/gi, '</script>')
+            .replace(/<react-source>/gi, '<script data-source-type="view-source">')
+            .replace(/<\/react-source>/gi, '</script>')
+            .replace(/<stream-source>/gi, '<script data-source-type="stream-source">')
+            .replace(/<\/stream-source>/gi, '</script>');
+
+          if (!fs.existsSync(dirname(outputFile))) {
+            fs.mkdirSync(dirname(outputFile), { recursive: true });
+          }
+          fs.writeFileSync(outputFile, outputHtml, 'utf8');
+
+          glob(`${this.buildDir}/.tmp*.*`, {}, (err, files) => {
+            if (err) throw err;
+            files.map(file => fs.unlinkSync(file, () => {}));
           });
 
-        this.htmlText = this.htmlText
-          .replace(/\s*type\s*=\s*["']?\s*text\/scss\s*["']?\s*/g, ' ')
-          .replace(/<view-source>/gi, '<script data-source-type="view-source">')
-          .replace(/<\/view-source>/gi, '</script>')
-          .replace(/<stream-source>/gi, '<script data-source-type="stream-source">')
-          .replace(/<\/stream-source>/gi, '</script>');
-
-        glob(`${this.buildDir}/.tmp*.js`, {}, (err, files) => {
-          if (err) throw err;
-          files.map(file => fs.unlink(file, () => {}));
+          resolve(outputHtml);
         });
-
-        const dirName = dirname(this.outputFile);
-        if (!fs.existsSync(dirName)) {
-          fs.mkdirSync(dirName, { recursive: true });
-        }
-        fs.writeFileSync(this.outputFile, this.htmlText, 'utf8');
-        resolve(this.htmlText);
       });
-    });
+    } catch (err) {
+      throw new Error(err);
+    }
   }
 }
 

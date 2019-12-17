@@ -15,9 +15,10 @@ export default class DevServer {
   precompile () {
     const { buildMode, devServer, dirname, currentModule } = this.options;
 
-    return new Promise(res => {
-      webpack(webpackConfig(buildMode, devServer, dirname, this.options)).run(err => {
-        if (err) throw err;
+    return new Promise((res, rej) => {
+      webpack(webpackConfig(buildMode, devServer, dirname, this.options)).run((err, stats) => {
+        if (stats.compilation.errors.length) throw new Error(stats.compilation.errors);
+        if (err) throw new Error(err);
 
         const compileOpt = {
           buildMode,
@@ -39,7 +40,6 @@ export default class DevServer {
   run () {
     const {
       dirname,
-      master,
       units,
       currentModule,
       optional,
@@ -47,21 +47,22 @@ export default class DevServer {
       port,
       execute,
       buildMode,
-      devServer
+      devServer,
+      cacheDir
     } = this.options;
 
-    const app = new App({ execute });
+    const app = new App({ execute, cacheDir });
 
     const server = new WebpackDevServer(this.compiler, {
       headers: { 'Access-Control-Allow-Origin': '*' },
       disableHostCheck: true,
       stats: { colors: true },
-      contentBase: [`${dirname}/node_modules/${master}/dist`, `${dirname}/src`],
+      contentBase: [`${dirname}/dist`, `${dirname}/src`],
       publicPath: `/${units.dirS}/`,
       hot: true,
       inline: true,
       watchContentBase: true,
-      after: after({ dirname, currentModule, units, optional, app, latency, buildMode, devServer })
+      after: after({ app, buildMode, cacheDir, currentModule, devServer, dirname, latency, optional, units })
     });
 
     server.listen(port, '0.0.0.0', err => {

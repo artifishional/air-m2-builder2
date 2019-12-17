@@ -1,8 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
-import { Utils } from './utils.mjs';
 import { CompileHtml, CompileResource, CompileSource } from './compile.mjs';
-
-const utils = new Utils();
+import { addUnique, getAdditional } from './utils.mjs';
+import { extname } from 'path';
 
 export default opt => {
   const { devServer, dirname, module, units, optional, resolvePath } = opt;
@@ -12,15 +11,15 @@ export default opt => {
     throw `ERROR: file not found '${pkgPath}'`;
   }
 
-  const additionals = utils.getAdditional(pkgPath, units.requires);
+  const additionals = getAdditional(pkgPath, units.requires);
   if (additionals != null) {
-    utils.addUnique(optional, additionals);
+    addUnique(optional, additionals);
   }
 
   const pkg = readFileSync(pkgPath, 'utf8');
   const { main } = JSON.parse(pkg);
-  const extensionMain = utils.getExtension(main);
-  const extensionPath = utils.getExtension(resolvePath);
+  const extensionMain = extname(main);
+  const extensionPath = extname(resolvePath);
 
   let Compiler;
   if (extensionPath === '.html') {

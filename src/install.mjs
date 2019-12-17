@@ -64,17 +64,14 @@ export default class Install {
   run () {
     return new Promise((res, rej) => {
       const processing = this.__queue.splice(0, this.__queue.length);
-      const pkg = processing
-        .reduce((prev, cur) => {
-          return prev + cur.source + ' ';
-        }, '')
-        .trim();
-      const pkgList = pkg.replace(/ /g, '\n').split('\n');
+
+      const pkgList = [...new Set(processing.map(({ source }) => source.trim()))];
+
       pkgList.forEach(p => {
         console.log(`install: ${p} ...`);
       });
 
-      this.execute({ pkg, dirname: processing[0].dirname }).then(error => {
+      this.execute({ pkg: pkgList.join(' '), dirname: processing[0].dirname }).then(error => {
         if (error) {
           console.log(error);
           rej(`ERROR: install error\n${pkgList.join('\n')}`);

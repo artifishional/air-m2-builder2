@@ -1,7 +1,4 @@
-import { Utils } from './utils.mjs';
 import { extname } from 'path';
-
-const utils = new Utils();
 
 export default class Request {
   constructor ({ req, dirname, units, currentModule, optional, buildMode, devServer }) {

@@ -1,92 +1,65 @@
 import Request from './request.mjs';
 import { CompileHtml } from './compile.mjs';
-import { Utils } from './utils.mjs';
-import path from 'path';
+import { importPathResolve, removeQueryString } from './utils.mjs';
+import { extname } from 'path';
 
-export default function after ({ dirname, currentModule, units, optional, latency, app: { requester, installer }, execute, devServer, buildMode }) {
+const sendResolve = ({ res, source, method, delay = 0, code = null }) => {
+  setTimeout(() => {
+    if (code) {
+      res.status(code)
+    }
+    if (method === 'data') {
+      res.send(source);
+    } else if (method === 'file') {
+      res.sendFile(source);
+    }
+  }, delay);
+};
+
+export default function after ({ cacheDir, dirname, module, currentModule, units, optional, latency, app: { requester, installer }, execute, devServer, buildMode }) {
   return function (app) {
     app.get(`/${units.dirS}/*`, (req, res) => {
-      function sendResolve ({ source, method, delay }) {
-        if (delay === 0) {
-          if (method === 'data') {
-            res.send(source);
-          } else if (method === 'file') {
-            res.sendFile(source);
-          }
-        } else {
-          if (method === 'data') {
-            setTimeout(() => {
-              res.send(source);
-            }, delay);
-          } else if (method === 'file') {
-            setTimeout(() => {
-              res.sendFile(source);
-            }, delay);
-          }
-        }
-      }
-
       const request = new Request({ req, dirname, units, currentModule, optional, execute, buildMode, devServer });
 
-      const utils = new Utils();
       const { module, relativePath, resolvePath } = request.options;
-      const filePath = utils.removeQueryString(`${dirname}/src/${relativePath}`);
+      const filePath = removeQueryString(`${dirname}/src/${relativePath}`);
 
-      let i = 0;
-      let match = null;
-      let delay = 0;
-      while (match === null && i < latency.length) {
-        match = filePath.match(new RegExp(latency[i++].regex));
-      }
-      if (match !== null) {
-        delay = latency[i - 1].delay || 0;
-      }
+      const delay = latency
+        .map((l, i) => RegExp(l.regex).test(filePath) ? l.delay : 0)
+        .filter(Boolean).pop();
 
-      if (request.mode === 'currentModule') {
-        if (path.extname(filePath) === '.html') {
-          const importPathResolve = (data) => {
-            const regex = /import\s(?:["'\s]*[\w*{}\$\n\r\t, ]+from\s*)?["'\s]*([^"']+)["'\s]/gm;
-            const sourceDir = path.dirname(filePath);
-            return data.replace(regex, (match, importPath) => {
-              let res = match;
-              if (~importPath.indexOf('./')) {
-                res = match.replace(importPath, path.resolve(`${sourceDir}/${importPath}`));
-                res = res.replace(/\\/g, '/');
-              }
-              return res;
-            });
-          };
+      if (request.error) {
+        console.log(request.error);
+        sendResolve({ res, source: request.error, method: 'data', delay, code: 500 });
+      } else if (request.mode === 'currentModule') {
+        if (extname(filePath) === '.html') {
+
+          const outputFile = removeQueryString(resolvePath);
 
           new CompileHtml({
             ...request.options,
             inputFile: filePath,
-            outputFile: utils.removeQueryString(resolvePath),
-            importPathResolve
+            outputFile,
+            importPathResolve: importPathResolve(filePath),
+            cacheDir
           })
             .run()
             .then(htmlText => {
-              sendResolve({ source: htmlText, method: 'data', delay });
+              sendResolve({ res, source: htmlText, method: 'data', delay });
             });
         } else {
-          sendResolve({ source: filePath, method: 'file', delay });
+          sendResolve({ res, source: filePath, method: 'file', delay });
         }
-        return;
+      } else {
+        requester
+          .get({ cacheDir, ...request.options })
+          .then(() => sendResolve({ res, source: removeQueryString(resolvePath), method: 'file', delay }))
+          .catch(error => {
+            installer.deleteInstance(`${module}/${relativePath}`);
+            console.log(error);
+            sendResolve({ res, source: error, method: 'data', delay });
+          });
       }
-      if (request.error) {
-        console.log(request.error);
-        sendResolve({ source: request.error, method: 'data', delay });
-        return;
-      }
-
-      requester
-        .get(request.options)
-        .then(() => {
-          return sendResolve({ source: utils.removeQueryString(resolvePath), method: 'file', delay });
-        })
-        .catch(error => {
-          installer.deleteInstance(`${module}/${relativePath}`);
-          sendResolve({ source: error, method: 'data', delay });
-        });
     });
   };
 }
