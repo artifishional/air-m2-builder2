@@ -2,6 +2,7 @@ import webpack from 'webpack';
 import webpackCompileConfig from '../webpack-compiler.config.mjs';
 import { dirname, normalize, relative, resolve, sep } from 'path';
 import fs from 'fs';
+import memfs from 'memfs';
 import glob from 'glob';
 import sass from 'sass';
 import postcss from 'postcss';
@@ -86,9 +87,9 @@ class CompileHtml {
       length
     };
 
-    if (cacheDir && fs.existsSync(`${cacheDir}/${filenameBundle}`)) {
+    if (cacheDir && memfs.existsSync(`${cacheDir}/${filenameBundle}`)) {
       return new Promise((resolve) => {
-        const data = fs.readFileSync(`${cacheDir}/${filenameBundle}`);
+        const data = memfs.readFileSync(`${cacheDir}/${filenameBundle}`);
         resolve({ ...meta, data });
       });
     } else {
@@ -108,7 +109,7 @@ class CompileHtml {
                   css = this.processCssPath(css);
                   css = this.processCssResources(css);
                   if (cacheDir) {
-                    fs.writeFileSync(`${cacheDir}/${filenameBundle}`, css, 'utf8');
+                    memfs.writeFileSync(`${cacheDir}/${filenameBundle}`, css, 'utf8');
                   }
                   resolve({ ...meta, data: css });
                 });
@@ -136,7 +137,7 @@ class CompileHtml {
             } else {
               const data = fs.readFileSync(meta.file);
               if (cacheDir) {
-                fs.writeFileSync(`${cacheDir}/${filenameBundle}`, data);
+                memfs.writeFileSync(`${cacheDir}/${filenameBundle}`, data);
               }
 
               resolve({

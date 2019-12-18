@@ -3,6 +3,7 @@ import { basename, join, resolve } from 'path';
 import { addUnique, getAdditional, getFrom } from './utils.mjs';
 import minimist from 'minimist';
 import rimraf from 'rimraf';
+import memfs from 'memfs';
 import glob from 'glob';
 
 const PORT = 9000;
@@ -87,13 +88,13 @@ export default function serverConfig (options = {}) {
   }
 
   const cacheDir = `${dirname}/node_modules/.cache/m2`;
-  if (!existsSync(cacheDir)) {
-    mkdirSync(cacheDir, { recursive: true });
+  if (!memfs.existsSync(cacheDir)) {
+    memfs.mkdirSync(cacheDir, { recursive: true });
   }
-  glob(`${cacheDir}/.tmp*.*`, {}, (err, files) => {
-    if (err) throw err;
-    files.map(file => unlink(file, () => {}));
-  });
+  // glob(`${cacheDir}/.tmp*.*`, {}, (err, files) => {
+  //   if (err) throw err;
+  //   files.map(file => unlink(file, () => {}));
+  // });
 
   return {
     entryUnit,

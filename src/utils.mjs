@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { dirname, extname, isAbsolute, resolve } from 'path';
 import copyfiles from 'copyfiles';
-import { exec } from 'child_process';
+import { spawn } from 'child_process';
 import { CompileHtml } from './compile.mjs';
 import glob from 'glob';
 import crypto from 'crypto';
@@ -154,9 +154,21 @@ export const cacheHash = (source, { sourcePath, type, recursive = false }) => {
 
 };
 
-export const executeDev = ({ pkg }) => new Promise(res => {
-  const execString = `npm i --no-save --no-optional ${pkg}`;
-  exec(execString, error => {
-    res(error);
+export const executeDev = ({ pkg }) => new Promise((resolve, reject) => {
+  const isWin = process.platform === "win32";
+  const npm = isWin ? 'npm.cmd' : 'npm';
+  const cmd = spawn(npm, ['i', '--no-save', '--no-optional', pkg]);
+
+  const stderr = [];
+  cmd.stderr.on('data', (data) => {
+    stderr.push(data);
+  });
+
+  cmd.on('close', (code) => {
+    if (code === 0) {
+      resolve();
+    } else {
+      reject(stderr.join(''));
+    }
   });
 });
