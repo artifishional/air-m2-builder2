@@ -1,88 +1,51 @@
-import { existsSync } from 'fs';
 import postInstall from './postinstall.mjs';
+import { existsSync } from 'fs';
 
 export default class Install {
   constructor ({ execute }) {
-    this.__queue = [];
-    this.__pending = false;
+    this.__packages = {};
     this.execute = execute;
   }
 
-  go (opt) {
-    return this.install(opt).then(() => {
+  go (options) {
+    return this.prepare(options).then(() => {
       const {
         Compiler,
         paths: { path, entry }
-      } = postInstall(opt);
-
-      return new Compiler(opt, { path, entry }).run();
+      } = postInstall(options);
+      return new Compiler(options, { path, entry }).run();
     });
   }
 
-  install (opt) {
-    if (!opt.devServer || !existsSync(opt.dirname + `/node_modules/${opt.module}`)) {
-      return this.pushRequest(opt);
-    } else {
-      return new Promise(res => {
-        res(opt);
-      });
+  prepare ({ devServer, dirname, module, source }) {
+    if (!this.__packages[module]) {
+      if (!devServer || !existsSync(`${dirname}/node_modules/${module}`)) {
+        this.__packages[module] = {
+          promise: this.install({ module, source }),
+          status: 'pending'
+        };
+        return this.__packages[module].promise;
+      } else {
+        return new Promise((res) => res());
+      }
+    } else if (this.__packages[module].status === 'pending') {
+      return this.__packages[module].promise;
     }
   }
 
-  pushRequest (opt) {
-    this.__queue.push(opt);
+  install ({ module, source }) {
+    return new Promise((resolve, reject) => {
+      console.log(`install: ${module} ...`);
 
-    if (!this.__pending) {
-      this.__pending = true;
-      this.promise = new Promise((res, rej) => {
-        setTimeout(() => {
-          this.run()
-            .then(() => {
-              res();
-            })
-            .catch(error => {
-              rej(error);
-            });
-        }, 1000);
-      });
-    }
-
-    return this.promise;
-  }
-
-  next (cb) {
-    if (this.__queue.length > 0) {
-      this.run().then(() => {
-        cb();
-      });
-    } else {
-      this.__pending = false;
-      cb();
-    }
-  }
-
-  run () {
-    return new Promise((res, rej) => {
-      const processing = this.__queue.splice(0, this.__queue.length);
-
-      const pkgList = [...new Set(processing.map(({ source }) => source.trim()))];
-
-      pkgList.forEach(p => {
-        console.log(`install: ${p} ...`);
-      });
-
-      this.execute({ pkg: pkgList.join(' '), dirname: processing[0].dirname }).then(error => {
+      this.execute({ pkg: source }).then(error => {
         if (error) {
-          console.log(error);
-          rej(`ERROR: install error\n${pkgList.join('\n')}`);
-          this.__pending = false;
+          reject(`ERROR: install error\n${module}\n${error}\n\n`);
+          this.__packages[module].status = 'error';
           return;
         }
-
-        pkgList.forEach(p => {
-          console.log(`install: ${p} -- ok`);
-        });
-        this.next(res);
+        this.__packages[module] = false;
+        console.log(`install: ${module} -- ok`);
+        resolve();
       });
     });
   }
