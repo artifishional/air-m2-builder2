@@ -1,6 +1,6 @@
 import Request from './request.mjs';
 import { CompileHtml } from '../compile.mjs';
-import { Utils, UtilsDev } from '../utils.mjs';
+import { removeQueryString, executeDev } from '../utils.mjs';
 import serverConfig from "../serverConfig.mjs";
 import App from "./app";
 import fs from 'fs';
@@ -16,7 +16,7 @@ export default function after ({path: pathStr}, {url}) {
       optional,
       latency,
       execute,
-    } = serverConfig({ execute: UtilsDev.execute });
+    } = serverConfig({ execute: executeDev });
 
     const buildMode = 'development';
     const devServer = true;
@@ -46,9 +46,8 @@ export default function after ({path: pathStr}, {url}) {
 
     const request = new Request({ url: pathStr + url, dirname, units, currentModule, optional, execute, buildMode, devServer });
 
-    const utils = new Utils();
     const { resolvePath } = request.options;
-    const filePath = utils.removeQueryString(`${dirname}/src/${request.options.relativePath}`);
+    const filePath = removeQueryString(`${dirname}/src/${request.options.relativePath}`);
 
     let i = 0;
     let match = null;
@@ -78,7 +77,7 @@ export default function after ({path: pathStr}, {url}) {
         new CompileHtml({
           ...request.options,
           inputFile: filePath,
-          outputFile: utils.removeQueryString(resolvePath),
+          outputFile: removeQueryString(resolvePath),
           importPathResolve
         })
           .run()
@@ -111,7 +110,7 @@ export default function after ({path: pathStr}, {url}) {
     requester
       .get(request.options)
       .then(() => {
-        return sendResolve({ source: utils.removeQueryString(resolvePath), method: 'file', delay });
+        return sendResolve({ source: removeQueryString(resolvePath), method: 'file', delay });
       })
       .catch(error => {
         installer.deleteInstance(`${request.options.module}/${request.options.relativePath}`);

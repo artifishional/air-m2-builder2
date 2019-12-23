@@ -8,6 +8,7 @@ import postcss from 'postcss';
 import autoprefixer from 'autoprefixer';
 import csstree from 'css-tree';
 import { cacheHash } from './utils.mjs';
+import path from 'path';
 
 const SOURCE_TYPES = ['js', 'jsx', 'scss'];
 const REGEXPS = {
@@ -98,7 +99,16 @@ class CompileHtml {
 
       if (type === 'scss') {
         return new Promise((resolve) => {
-          sass.render({ data: this.processSassImports(source) }, (err, result) => {
+          sass.render({
+            data: this.processSassImports(source),
+            importer(url, prev) {
+              if (url.indexOf('file:///') !== -1) {
+                return {file: url.replace('file:///', '')};
+              } else {
+                return {file: path.resolve(path.dirname(prev), url).replace(/\\/g, '/')};
+              }
+            }
+          }, (err, result) => {
             if (err) {
               console.log(`Sass compile error:\n${err}`, buildDir);
             } else {
@@ -133,7 +143,8 @@ class CompileHtml {
             if (stats.hasErrors()) {
               console.log(`ERROR: ${compiler.options.entry} compile error`);
               // todo выяснить почему не компилится js
-              // reject(`ERROR '${compiler.options.entry}': compile error`);
+              //reject(`ERROR '${compiler.options.entry}': compile error`);
+              resolve({...meta, data: 'this.__m2units__ = null;'});
             } else {
               const data = fs.readFileSync(meta.file);
               if (cacheDir) {
