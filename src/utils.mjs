@@ -160,3 +160,9 @@ export const executeDev = ({ pkg }) => new Promise(res => {
     res(error);
   });
 });
+
+export const lookupMIMEType = ({url}) => ({
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  svg: 'image/svg+xml',
+}[url.match(/\.([^.]+)$/)[1]]);

@@ -1,4 +1,6 @@
 import FontFaceObserver from 'fontfaceobserver';
+import { lookupMIMEType } from "../utils";
+import {extname, resolve, basename} from "path";
 
 const FONT_LOADING_TIMEOUT = 30000;
 
@@ -83,13 +85,27 @@ export default (resourceloader, {path}, { acid, priority, style, revision, ...ar
 			}
 		}
 
-		const promises = dataForLoading.map(({ type, placeholder, resource }) => {
+		const promises = dataForLoading.map(({ type, placeholder, resource: url }) => {
 			if (type === 'image') {
-				return resourceloader(resourceloader, {path}, {url: resource, type: 'array-buffer'})
-					.then(({arrayBuffer, type}) => FileReader(new Blob(arrayBuffer, {type})))
-					.then(({target: {result: base64}}) => {
-						rawCommonCSSContent = rawCommonCSSContent.replace(placeholder, base64);
-					})
+                const dirname = resolve('.');
+                const currentModule = basename(dirname);
+				const {pathname} = new URL(path + url.replace(/"/g, ''), 'file://');
+				const extension = extname(pathname);
+				const match = pathname.match(/[-\w]+\//g);
+				const module = match && match.length > 0 ? match[0].slice(0, -1) : currentModule;
+				const relativePath = pathname.slice(pathname.lastIndexOf(`/${module}/`) + module.length + 2);
+				const mode = currentModule === module ? 'currentModule' : 'request';
+				if (mode === 'currentModule') {
+					url = `file://${dirname}/src/${relativePath}`;
+				} else {
+					url = ['.js', '.html'].includes(extension) ?
+						`file://${dirname}/node_modules/${module}/m2units/${relativePath}` :
+						`file://${dirname}/node_modules/${module}/${relativePath}`;
+				}
+				while (~rawCommonCSSContent.indexOf(placeholder)) {
+					rawCommonCSSContent = rawCommonCSSContent.replace(placeholder, url);
+				}
+				return resourceloader(resourceloader, {path}, {url, type: 'img'});
 			}
 		});
 		promises.push(...fonts.map((font) =>

@@ -1,21 +1,20 @@
-import after from './after.mjs';
-import mime from 'mime';
+import binaryContent from './binary-content.mjs';
 import scriptLoader from './script_like_promise';
 import inlineStyleLoader from "./inline-style";
+import imageLoader from './image';
 
-export default function (resourceloader, { path }, { type, url, ...args }) {
+export default function (resourceloader, { path }, { type, ...args }) {
   if (type === "content") {
-    return after({path}, {type, url, ...args})
-      .then(arrayBuffer => arrayBuffer.toString());
-  } else if (type === 'array-buffer') {
-    return after({path}, {type, url, ...args})
-      .then(arrayBuffer => ({arrayBuffer, type: mime.lookup(url)}));
+    return resourceloader(resourceloader, {path}, {type: 'binary-content', ...args})
+      .then(data => data.toString());
+  } else if (type === 'binary-content') {
+    return binaryContent({path}, {type, ...args});
   } else if (type === 'script') {
-    return scriptLoader(resourceloader, {path}, {type, url, ...args});
-  } else if (type === 'img') {
-    return Promise.resolve();
+    return scriptLoader(resourceloader, {path}, {type, ...args});
   } else if (type === "inline-style") {
-    return inlineStyleLoader(resourceloader, {path}, { type, url, ...args });
+    return inlineStyleLoader(resourceloader, {path}, { type, ...args });
+  } else if (type === "img") {
+    return imageLoader(resourceloader, {path}, { type, ...args });
   } else {
     throw "unsupported resource type";
   }
