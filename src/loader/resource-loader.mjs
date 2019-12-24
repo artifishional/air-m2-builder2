@@ -1,6 +1,7 @@
 import after from './after.mjs';
 import mime from 'mime';
 import scriptLoader from './script_like_promise';
+import inlineStyleLoader from "./inline-style";
 
 export default function (resourceloader, { path }, { type, url, ...args }) {
   if (type === "content") {
@@ -12,8 +13,9 @@ export default function (resourceloader, { path }, { type, url, ...args }) {
   } else if (type === 'script') {
     return scriptLoader(resourceloader, {path}, {type, url, ...args});
   } else if (type === 'img') {
-    return after({path}, {type, url, ...args})
-        .then((data) => new Buffer(data));
+    return Promise.resolve();
+  } else if (type === "inline-style") {
+    return inlineStyleLoader(resourceloader, {path}, { type, url, ...args });
   } else {
     throw "unsupported resource type";
   }
