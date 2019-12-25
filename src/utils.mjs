@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 import { CompileHtml } from './compile.mjs';
 import glob from 'glob';
 import crypto from 'crypto';
+import {currentModule, units, dirname as projectDirname} from "./loader/values.mjs";
 
 const importExportRegex = /(?:import|export)\s(?:["'\s]*[\w*{}\$\n\r\t, ]+from\s*)?["'\s]*([^"']+)["'\s]/gm;
 
@@ -164,5 +165,42 @@ export const executeDev = ({ pkg }) => new Promise(res => {
 export const lookupMIMEType = ({url}) => ({
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
+  png: 'image/png',
   svg: 'image/svg+xml',
+  otf: 'font/otf',
+  ttf: 'font/otf',
+  woff: 'font/woff',
+  woff2: 'font/woff2',
+  eot: 'application/vnd.ms-fontobject',
+
 }[url.match(/\.([^.]+)$/)[1]]);
+
+export const getResourceInfo = ({path: urlPath, url}) => {
+  const {pathname} = new URL(urlPath + url.replace(/"/g, ''), 'file://');
+  const extension = extname(pathname);
+  const match = pathname.match(/[-\w]+\//g);
+  const module = match && match.length > 0 ? match[0].slice(0, -1) : currentModule;
+  const relativePath = pathname.slice(pathname.lastIndexOf(`/${module}/`) + module.length + 2);
+  const mode = module === currentModule ? 'currentModule' : 'request';
+  let resolvePath;
+  if (mode === 'currentModule') {
+    if (extension === '.html' || extension === '.js') {
+      resolvePath = `${projectDirname}/node_modules/${module}/m2unit/${relativePath}`;
+    } else {
+      resolvePath = `${projectDirname}/src/${relativePath}`;
+    }
+  } else {
+    resolvePath = ['.js', '.html'].includes(extension) ?
+        `${projectDirname}/node_modules/${module}/m2unit/${relativePath}` :
+        `${projectDirname}/node_modules/${module}/src/${relativePath}`;
+  }
+  return {resolvePath, extension, module, mode, relativePath};
+};
+
+export function FileReader(blob) {
+    return new Promise( (resolver) => {
+        const reader = new globalThis.FileReader();
+        reader.readAsDataURL(blob);
+        reader.onloadend = (...args) => resolver(...args);
+    } );
+}

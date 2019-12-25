@@ -1,16 +1,5 @@
-import FontFaceObserver from 'fontfaceobserver';
-import { lookupMIMEType } from "../utils";
-import {extname, resolve, basename} from "path";
+import {lookupMIMEType, FileReader} from "../utils";
 
-const FONT_LOADING_TIMEOUT = 30000;
-
-function FileReader(blob) {
-	return new Promise( (resolver) => {
-		const reader = new globalThis.FileReader();
-		reader.readAsDataURL(blob);
-		reader.onloadend = resolver;
-	} );
-}
 
 function createPrioritySystemStyle (priority) {
 	while (PRIORITY.length < priority + 1) {
@@ -36,36 +25,31 @@ export default (resourceloader, {path}, { acid, priority, style, revision, ...ar
 			PRIORITY[0] = zero;
 		}
 
-		const fonts = [];
+		const promises = [];
+
 		let fontFaceStyle = null;
 		let rawFontCSSContent = '';
 		const fontRegex = /@font-face\s*{[^}]+}/gm;
 		const fontFaceMatches = style.textContent.matchAll(fontRegex);
 		if (fontFaceMatches) {
 			for (const [fontFaceMatch] of fontFaceMatches) {
+				const fontPromises = [];
 				const fontFamilyMatch = fontFaceMatch.match(/font-family:\s*['"]([^'"]+)['"]/);
 				if (fontFamilyMatch) {
-					if (fonts.indexOf(fontFamilyMatch[1]) === -1) {
-						fonts.push(fontFamilyMatch[1]);
-					}
-
-					rawFontCSSContent += fontFaceMatch.replace(/url\(['"]?([^\'")]+)['"]?\)/gm, (_, resource) => {
-						const url = new URL(
-							'm2units/' + path + resource,
-							window.location.origin + window.location.pathname
-						);
-						if (revision) {
-							url.searchParams.append('revision', revision);
-						}
-						return `url("${url}")`;
+					fontFaceMatch.replace(/url\(['"]?([^\'")]+)['"]?\)/gm, (_, url) => {
+						fontPromises.push(resourceloader(resourceloader, {path}, {url, type: 'binary-content'})
+							.then(binaryContent => new Blob(binaryContent, {type: lookupMIMEType({url})}))
+							.then(FileReader));
+					});
+					promises.push(...fontPromises);
+					Promise.all(fontPromises).then((results) => {
+						rawFontCSSContent += fontFaceMatch.replace(/url\(['"]?([^\'")]+)['"]?\)/gm, () => {
+							return `url("${results.shift().target.result}")`;
+						});
 					});
 				}
 			}
 			style.textContent = style.textContent.replace(fontRegex, '');
-
-			fontFaceStyle = document.createElement('style');
-			fontFaceStyle.textContent = rawFontCSSContent;
-			document.head.appendChild(fontFaceStyle);
 		}
 
 		const dataForLoading = [];
@@ -85,34 +69,23 @@ export default (resourceloader, {path}, { acid, priority, style, revision, ...ar
 			}
 		}
 
-		const promises = dataForLoading.map(({ type, placeholder, resource: url }) => {
+		promises.push(...dataForLoading.map(({ type, placeholder, resource: url }) => {
 			if (type === 'image') {
-                const dirname = resolve('.');
-                const currentModule = basename(dirname);
-				const {pathname} = new URL(path + url.replace(/"/g, ''), 'file://');
-				const extension = extname(pathname);
-				const match = pathname.match(/[-\w]+\//g);
-				const module = match && match.length > 0 ? match[0].slice(0, -1) : currentModule;
-				const relativePath = pathname.slice(pathname.lastIndexOf(`/${module}/`) + module.length + 2);
-				const mode = currentModule === module ? 'currentModule' : 'request';
-				if (mode === 'currentModule') {
-					url = `file://${dirname}/src/${relativePath}`;
-				} else {
-					url = ['.js', '.html'].includes(extension) ?
-						`file://${dirname}/node_modules/${module}/m2units/${relativePath}` :
-						`file://${dirname}/node_modules/${module}/${relativePath}`;
-				}
-				while (~rawCommonCSSContent.indexOf(placeholder)) {
-					rawCommonCSSContent = rawCommonCSSContent.replace(placeholder, url);
-				}
-				return resourceloader(resourceloader, {path}, {url, type: 'img'});
+				return resourceloader(resourceloader, {path}, {url, type: 'binary-content'})
+					.then(binaryContent => new Blob(binaryContent, {type: lookupMIMEType({url})}))
+					.then(FileReader)
+					.then(({target: {result: base64}}) => {
+						while (~rawCommonCSSContent.indexOf(placeholder)) {
+							rawCommonCSSContent = rawCommonCSSContent.replace(placeholder, base64);
+						}
+					});
 			}
-		});
-		promises.push(...fonts.map((font) =>
-			new FontFaceObserver(font).load(null, FONT_LOADING_TIMEOUT))
-		);
+		}));
 
 		return Promise.all(promises).then(() => {
+			fontFaceStyle = document.createElement('style');
+			fontFaceStyle.textContent = rawFontCSSContent;
+			document.head.appendChild(fontFaceStyle);
 			commonStyle.textContent = rawCommonCSSContent;
 			inject(commonStyle, priority);
 			return { type: 'inline-style', style: commonStyle, ...args };
