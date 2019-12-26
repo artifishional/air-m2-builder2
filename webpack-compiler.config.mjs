@@ -16,6 +16,7 @@ export default ({ entry, path, filename, buildMode, resolve = null }) => {
       {
         test: /\.jsx$/,
         use: [
+          // todo. Если пробовать собирать с лоадерами, то сборка падает. Временно выпилил
           // {
           //   loader: 'babel-loader',
           //   options: {
@@ -31,6 +32,7 @@ export default ({ entry, path, filename, buildMode, resolve = null }) => {
     obj.module.rules.push({
       test: /\.m?js$/,
       use: [
+        // todo. Если пробовать собирать с лоадерами, то сборка падает. Временно выпилил
         // {
         //   loader: 'air-m2-builder2/src/webpack-strip-block.js',
         //   options: {
