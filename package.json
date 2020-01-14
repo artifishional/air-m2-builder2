@@ -1,11 +1,12 @@
 {
   "name": "air-m2-builder2",
-  "version": "1.2.22",
+  "version": "2.0.1",
   "description": "",
   "main": "dist/builder2.js",
   "scripts": {
     "patch": "npm version patch && npm publish && git push origin",
     "minor": "npm version minor && npm publish && git push origin",
+    "major": "npm version major && npm publish && git push origin",
     "test": "node --experimental-modules ./test/test.mjs --dev-server"
   },
   "bin": {
@@ -19,12 +20,12 @@
   "author": "ai.2019",
   "license": "ISC",
   "dependencies": {
-    "@babel/core": "^7.3.4",
-    "@babel/preset-env": "^7.3.4",
-    "@babel/preset-react": "^7.6.3",
-    "@babel/runtime": "^7.4.5",
+    "@babel/core": "7.3.4",
+    "@babel/preset-env": "7.3.4",
+    "@babel/preset-react": "7.6.3",
+    "@babel/runtime": "7.4.5",
     "autoprefixer": "^9.5.1",
-    "babel-loader": "^8.0.5",
+    "babel-loader": "8.0.5",
     "babel-polyfill": "^6.26.0",
     "chai": "^4.2.0",
     "chai-http": "^4.2.1",
