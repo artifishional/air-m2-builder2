@@ -55,6 +55,7 @@ export default function prepareResource({path: urlPath, url}) {
       devServer: true,
       inputFile: `${projectDirname}/node_modules/${module}/src/${relativePath}`,
       outputFile: resolvePath,
+      relativePath,
     });
   }
 }
