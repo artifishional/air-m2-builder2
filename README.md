@@ -27,6 +27,7 @@
 - `--dev-server` - запуск отладочного сервера
 - `--build-mode [production|development]` - режим сборки скриптов webpack
 - `--m2units m2unit.prod` - переопределит зависимости
+- `--direct-dependencies-only` - поиск и сборка только прямых зависемостей (из корня текущего проекта в файлах m2units.json и/или package.json#m2units)
 
 ### Командная строка
 

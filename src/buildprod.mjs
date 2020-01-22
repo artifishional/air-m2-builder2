@@ -23,13 +23,13 @@ export default class BuildProd {
   }
 
   bundle (value) {
-    const { dirname, currentModule, units, optional, buildMode, devServer } = this.opt;
+    const { dirname, currentModule, units, buildMode } = this.opt;
     const { module } = value;
     const req = {
       originalUrl: `/m2units/${module}/index.js`,
       path: `/m2units/${module}/index.js`
     };
-    const request = new RequestOpt({ req, dirname, units, currentModule, optional, buildMode, devServer });
+    const request = new RequestOpt( { ...this.opt, req });
 
     if (request.error) {
       console.log(request.error);

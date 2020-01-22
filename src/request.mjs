@@ -1,7 +1,14 @@
 import { extname } from 'path';
 
 export default class Request {
-  constructor ({ req, dirname, units, currentModule, optional, buildMode, devServer }) {
+  constructor (options) {
+    const {
+      req,
+      dirname,
+      units,
+      currentModule,
+      optional,
+    } = options;
     const fullPath = dirname + req.originalUrl;
     const extension = extname(req.path);
     const match = req.path.match(/\/?[-\w]+\//g);
@@ -20,8 +27,7 @@ export default class Request {
     }
 
     this.options = {
-      devServer,
-      buildMode,
+      ...options,
       source: this.error ? null : source.source,
       inputFile: `${dirname}/node_modules/${module}/src/${relativePath}`,
       outputFile: resolvePath,
