@@ -2,7 +2,7 @@
   "name": "air-m2-builder2",
   "version": "2.0.2",
   "description": "",
-  "main": "dist/builder2.js",
+  "main": "src/index.mjs",
   "scripts": {
     "patch": "npm version patch && npm publish && git push origin",
     "minor": "npm version minor && npm publish && git push origin",

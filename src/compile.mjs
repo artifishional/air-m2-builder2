@@ -8,7 +8,6 @@ import postcss from 'postcss';
 import autoprefixer from 'autoprefixer';
 import csstree from 'css-tree';
 import { cacheHash } from './utils.mjs';
-import path from 'path';
 
 const SOURCE_TYPES = ['js', 'jsx', 'scss'];
 const REGEXPS = {
@@ -98,14 +97,14 @@ class CompileHtml {
       }
 
       if (type === 'scss') {
-        return new Promise((resolve) => {
+        return new Promise((res) => {
           sass.render({
             data: this.processSassImports(source),
             importer(url, prev) {
               if (url.indexOf('file:///') !== -1) {
                 return {file: url.replace('file:///', '')};
               } else {
-                return {file: path.resolve(path.dirname(prev), url).replace(/\\/g, '/')};
+                return {file: resolve(dirname(prev), url).replace(/\\/g, '/')};
               }
             }
           }, (err, result) => {
@@ -120,7 +119,7 @@ class CompileHtml {
                   if (cacheDir) {
                     fs.writeFileSync(`${cacheDir}/${filenameBundle}`, css, 'utf8');
                   }
-                  resolve({ ...meta, data: css });
+                  res({ ...meta, data: css });
                 });
             }
           });
