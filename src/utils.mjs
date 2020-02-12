@@ -182,18 +182,7 @@ export const getResourceInfo = ({path: urlPath, url}) => {
   const module = match && match.length > 0 ? match[0].slice(0, -1) : currentModule;
   const relativePath = pathname.slice(pathname.lastIndexOf(`/${module}/`) + module.length + 2);
   const mode = module === currentModule ? 'currentModule' : 'request';
-  let resolvePath;
-  if (mode === 'currentModule') {
-    if (extension === '.html' || extension === '.js') {
-      resolvePath = `${projectDirname}/node_modules/${module}/m2unit/${relativePath}`;
-    } else {
-      resolvePath = `${projectDirname}/src/${relativePath}`;
-    }
-  } else {
-    resolvePath = ['.js', '.html'].includes(extension) ?
-        `${projectDirname}/node_modules/${module}/m2unit/${relativePath}` :
-        `${projectDirname}/node_modules/${module}/src/${relativePath}`;
-  }
+  const resolvePath = `${projectDirname}/dist/m2units/${module}/${relativePath}`;
   return {resolvePath, extension, module, mode, relativePath};
 };
 

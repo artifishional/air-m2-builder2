@@ -97,17 +97,8 @@ class CompileHtml {
       }
 
       if (type === 'scss') {
-        return new Promise((res) => {
-          sass.render({
-            data: this.processSassImports(source),
-            importer(url, prev) {
-              if (url.indexOf('file:///') !== -1) {
-                return {file: url.replace('file:///', '')};
-              } else {
-                return {file: resolve(dirname(prev), url).replace(/\\/g, '/')};
-              }
-            }
-          }, (err, result) => {
+        return new Promise((resolve) => {
+          sass.render({ data: this.processSassImports(source) }, (err, result) => {
             if (err) {
               console.log(`Sass compile error:\n${err}`, buildDir);
             } else {
@@ -119,7 +110,7 @@ class CompileHtml {
                   if (cacheDir) {
                     fs.writeFileSync(`${cacheDir}/${filenameBundle}`, css, 'utf8');
                   }
-                  res({ ...meta, data: css });
+                  resolve({ ...meta, data: css });
                 });
             }
           });
