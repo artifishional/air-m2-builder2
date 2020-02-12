@@ -141,9 +141,7 @@ class CompileHtml {
           compiler.run(async (error, stats) => {
             if (stats.hasErrors()) {
               console.log(`ERROR: ${compiler.options.entry} compile error`);
-              // todo выяснить почему не компилится js
-              //reject(`ERROR '${compiler.options.entry}': compile error`);
-              resolve({...meta, data: 'this.__m2units__ = null;'});
+              reject(`ERROR '${compiler.options.entry}': compile error`);
             } else {
               const data = fs.readFileSync(meta.file);
               if (cacheDir) {

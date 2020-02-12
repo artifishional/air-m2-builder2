@@ -16,13 +16,12 @@ export default ({ entry, path, filename, buildMode, resolve = null }) => {
       {
         test: /\.jsx$/,
         use: [
-          // todo. Если пробовать собирать с лоадерами, то сборка падает. Временно выпилил
-          // {
-          //   loader: 'babel-loader',
-          //   options: {
-          //     presets: ['@babel/preset-react']
-          //   }
-          // }
+          {
+            loader: 'babel-loader',
+            options: {
+              presets: ['@babel/preset-react']
+            }
+          }
         ]
       }
     ]
@@ -32,31 +31,30 @@ export default ({ entry, path, filename, buildMode, resolve = null }) => {
     obj.module.rules.push({
       test: /\.m?js$/,
       use: [
-        // todo. Если пробовать собирать с лоадерами, то сборка падает. Временно выпилил
-        // {
-        //   loader: 'air-m2-builder2/src/webpack-strip-block.js',
-        //   options: {
-        //     blocks: [
-        //       ['<@debug>', '</@debug>'],
-        //       ['debug:start', 'debug:end'],
-        //     ]
-        //   }
-        // },
-        // {
-        //   loader: 'babel-loader',
-        //   options: {
-        //     presets: [
-        //       [
-        //         '@babel/preset-env',
-        //         {
-        //           targets: {
-        //             browsers: ['last 2 versions', 'ie >= 8']
-        //           }
-        //         }
-        //       ]
-        //     ]
-        //   }
-        // }
+        {
+          loader: 'air-m2-builder2/src/webpack-strip-block.js',
+          options: {
+            blocks: [
+              ['<@debug>', '</@debug>'],
+              ['debug:start', 'debug:end'],
+            ]
+          }
+        },
+        {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              [
+                '@babel/preset-env',
+                {
+                  targets: {
+                    browsers: ['last 2 versions', 'ie >= 8']
+                  }
+                }
+              ]
+            ]
+          }
+        }
       ]
     });
   }
