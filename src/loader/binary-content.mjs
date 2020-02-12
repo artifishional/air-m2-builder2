@@ -1,7 +1,7 @@
 import {readFile} from 'fs';
-import {getResourceInfo} from "../utils.mjs";
+import {getResourceResolvePath} from "../utils.mjs";
 
 export default (resourceloader, {path}, {url}) => new Promise(resolve => {
-        readFile(getResourceInfo({path, url}).resolvePath, (err, content) => resolve(content))
+        readFile(getResourceResolvePath({path, url}), (err, content) => resolve(content))
     }
 )

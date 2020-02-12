@@ -175,15 +175,12 @@ export const lookupMIMEType = ({url}) => ({
 
 }[url.match(/\.([^.]+)$/)[1]]);
 
-export const getResourceInfo = ({path: urlPath, url}) => {
+export const getResourceResolvePath = ({path: urlPath, url}) => {
   const {pathname} = new URL(urlPath + url.replace(/"/g, ''), 'file://');
-  const extension = extname(pathname);
   const match = pathname.match(/[-\w]+\//g);
   const module = match && match.length > 0 ? match[0].slice(0, -1) : currentModule;
   const relativePath = pathname.slice(pathname.lastIndexOf(`/${module}/`) + module.length + 2);
-  const mode = module === currentModule ? 'currentModule' : 'request';
-  const resolvePath = `${projectDirname}/dist/m2units/${module}/${relativePath}`;
-  return {resolvePath, extension, module, mode, relativePath};
+  return `${projectDirname}/dist/m2units/${module}/${relativePath}`;
 };
 
 export function FileReader(blob) {
