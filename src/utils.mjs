@@ -167,11 +167,6 @@ export const lookupMIMEType = ({url}) => ({
   jpeg: 'image/jpeg',
   png: 'image/png',
   svg: 'image/svg+xml',
-  otf: 'font/otf',
-  ttf: 'font/otf',
-  woff: 'font/woff',
-  woff2: 'font/woff2',
-  eot: 'application/vnd.ms-fontobject',
 
 }[url.match(/\.([^.]+)$/)[1]]);
 
