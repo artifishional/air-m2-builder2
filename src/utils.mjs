@@ -5,7 +5,7 @@ import { exec } from 'child_process';
 import { CompileHtml } from './compile.mjs';
 import glob from 'glob';
 import crypto from 'crypto';
-import {currentModule, units, dirname as projectDirname} from "./loader/values.mjs";
+import {currentModule, dirname as projectDirname} from "./loader/values.mjs";
 
 const importExportRegex = /(?:import|export)\s(?:["'\s]*[\w*{}\$\n\r\t, ]+from\s*)?["'\s]*([^"']+)["'\s]/gm;
 
