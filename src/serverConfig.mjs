@@ -17,7 +17,7 @@ export default function serverConfig (options = {}) {
       'directDependenciesOnly': false,
       'build-mode': '',
       'dev-server': false,
-      'm2units': units.requires,
+      'm2units': `${units.requires}.json`,
       'revision': process.env.STATIC_VERSION
     }
   });
@@ -54,7 +54,7 @@ export default function serverConfig (options = {}) {
   }
 
   const optional = new Set();
-  const unitsPath = `${dirname}/${m2units}.json`;
+  const unitsPath = `${dirname}/${m2units}`;
   if (existsSync(unitsPath)) {
     const additionals = getAdditional(unitsPath, units.requires, true);
     if (additionals != null) {
