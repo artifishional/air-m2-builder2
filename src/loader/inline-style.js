@@ -27,31 +27,6 @@ export default (resourceloader, {path}, { acid, priority, style, revision, ...ar
 
 		const promises = [];
 
-		let fontFaceStyle = null;
-		let rawFontCSSContent = '';
-		const fontRegex = /@font-face\s*{[^}]+}/gm;
-		const fontFaceMatches = style.textContent.matchAll(fontRegex);
-		if (fontFaceMatches) {
-			for (const [fontFaceMatch] of fontFaceMatches) {
-				const fontPromises = [];
-				const fontFamilyMatch = fontFaceMatch.match(/font-family:\s*['"]([^'"]+)['"]/);
-				if (fontFamilyMatch) {
-					fontFaceMatch.replace(/url\(['"]?([^\'")]+)['"]?\)/gm, (_, url) => {
-						fontPromises.push(resourceloader(resourceloader, {path}, {url, type: 'binary-content'})
-							.then(binaryContent => new Blob(binaryContent, {type: lookupMIMEType({url})}))
-							.then(FileReader));
-					});
-					promises.push(...fontPromises);
-					Promise.all(fontPromises).then((results) => {
-						rawFontCSSContent += fontFaceMatch.replace(/url\(['"]?([^\'")]+)['"]?\)/gm, () => {
-							return `url("${results.shift().target.result}")`;
-						});
-					});
-				}
-			}
-			style.textContent = style.textContent.replace(fontRegex, '');
-		}
-
 		const dataForLoading = [];
 		let rawCommonCSSContent = '';
 		const commonStyle = document.createElement('style');
@@ -83,9 +58,6 @@ export default (resourceloader, {path}, { acid, priority, style, revision, ...ar
 		}));
 
 		return Promise.all(promises).then(() => {
-			fontFaceStyle = document.createElement('style');
-			fontFaceStyle.textContent = rawFontCSSContent;
-			document.head.appendChild(fontFaceStyle);
 			commonStyle.textContent = rawCommonCSSContent;
 			inject(commonStyle, priority);
 			return { type: 'inline-style', style: commonStyle, ...args };

@@ -2,6 +2,7 @@ import binaryContent from './binary-content.mjs';
 import inlineStyleLoader from "./inline-style";
 import imageLoader from './image';
 import styleLoader from './style';
+import soundLoader from './sound';
 
 export default function (resourceloader, { path }, { type, url, ...args }) {
   if (type === "content") {
@@ -15,6 +16,8 @@ export default function (resourceloader, { path }, { type, url, ...args }) {
     return imageLoader(resourceloader, {path}, { type, url, ...args });
   } else if (type === 'style') {
     return styleLoader(resourceloader, {path}, { type, url, ...args });
+  } else if (type === "sound") {
+    return soundLoader({path}, { type, url, ...args });
   } else {
     throw "unsupported resource type";
   }
