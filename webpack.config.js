@@ -54,7 +54,6 @@ module.exports = (buildMode, devServer, dirname, { m2path, entryUnit, revision =
   };
 
   if (buildMode === 'production' && process.env.DEV_MODE  !== '1') {
-    obj.entry.push(`${__dirname}/src/babel-polyfill.js`);
     obj.module.rules.push({
         test: /\.m?js$/,
         use: [
@@ -75,8 +74,10 @@ module.exports = (buildMode, devServer, dirname, { m2path, entryUnit, revision =
                   '@babel/preset-env',
                   {
                     targets: {
-                      browsers: ['last 2 versions', 'ie >= 8']
-                    }
+                      chrome: 60,
+                    },
+                    "useBuiltIns": "usage",
+                    "corejs": 3
                   }
                 ]
               ]
