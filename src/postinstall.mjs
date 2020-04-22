@@ -4,16 +4,18 @@ import { addUnique, getAdditional } from './utils.mjs';
 import { extname } from 'path';
 
 export default opt => {
-  const { devServer, dirname, module, units, optional, resolvePath } = opt;
+  const { devServer, dirname, module, units, optional, resolvePath, directDependenciesOnly } = opt;
 
   const pkgPath = `${dirname}/node_modules/${module}/package.json`;
   if (!existsSync(pkgPath)) {
     throw `ERROR: file not found '${pkgPath}'`;
   }
 
-  const additionals = getAdditional(pkgPath, units.requires);
-  if (additionals != null) {
-    addUnique(optional, additionals);
+  if(!directDependenciesOnly) {
+    const additionals = getAdditional(pkgPath, units.requires);
+    if (additionals != null) {
+      addUnique(optional, additionals);
+    }
   }
 
   const pkg = readFileSync(pkgPath, 'utf8');

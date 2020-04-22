@@ -14,6 +14,7 @@ export default function serverConfig (options = {}) {
     strings: ['build-mode', 'm2units', 'revision'],
     boolean: ['dev-server'],
     default: {
+      'directDependenciesOnly': false,
       'build-mode': '',
       'dev-server': false,
       'm2units': units.requires,
@@ -25,6 +26,7 @@ export default function serverConfig (options = {}) {
   const devServer = argv['dev-server'];
   const buildMode = argv['build-mode'] || argv['dev-server'] === true && 'development' || 'production';
   const revision = argv['revision'] || null;
+  const directDependenciesOnly = !!argv['direct-dependencies-only'] || false;
 
   if (!['production', 'development'].includes(buildMode)) {
     throw `unsupported build mode type: ${buildMode}`;
@@ -96,6 +98,7 @@ export default function serverConfig (options = {}) {
   });
 
   return {
+    directDependenciesOnly,
     entryUnit,
     port,
     buildMode,
