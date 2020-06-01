@@ -22,13 +22,13 @@ export default class Request {
     this.mode = module === currentModule ? 'currentModule' : 'request';
 
     const source = [...optional.values()].find(e => e.module === module);
-    if (!source) {
+    if (!source && this.mode !== 'currentModule') {
       this.error = `ERROR '${module}': no install source error`;
     }
 
     this.options = {
       ...options,
-      source: this.error ? null : source.source,
+      source: source && source.source || null,
       inputFile: `${dirname}/node_modules/${module}/src/${relativePath}`,
       outputFile: resolvePath,
       resolvePath,
