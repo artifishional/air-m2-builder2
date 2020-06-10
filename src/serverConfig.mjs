@@ -21,6 +21,9 @@ export default function serverConfig (options = {}) {
       'revision': process.env.STATIC_VERSION
     }
   });
+  
+  console.log('process.env.DEV_MODE', process.env.DEV_MODE);
+  console.log('process.env.STATIC_VERSION', process.env.STATIC_VERSION);
 
   const m2units = argv['m2units'];
   const devServer = argv['dev-server'];
