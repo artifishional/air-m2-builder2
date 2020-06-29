@@ -55,7 +55,7 @@ export default ({ entry, path, filename, buildMode, resolve = null }) => {
             ]
           }
         }
-      ]
+      ].reverse()
     });
   }
 

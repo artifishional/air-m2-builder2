@@ -82,7 +82,7 @@ module.exports = (buildMode, devServer, dirname, { m2path, entryUnit, revision =
               ]
             }
           }
-        ]
+        ].reverse()
       }
     );
   }
