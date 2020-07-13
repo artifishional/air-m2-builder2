@@ -59,15 +59,6 @@ module.exports = (buildMode, devServer, dirname, { m2path, entryUnit, revision =
         test: /\.m?js$/,
         use: [
           {
-            loader: 'air-m2-builder2/src/webpack-strip-block.js',
-            options: {
-              blocks: [
-                ['<@debug>', '</@debug>'],
-                ['debug:start', 'debug:end'],
-              ]
-            }
-          },
-          {
             loader: 'babel-loader',
             options: {
               presets: [
@@ -81,7 +72,17 @@ module.exports = (buildMode, devServer, dirname, { m2path, entryUnit, revision =
                 ]
               ]
             }
-          }
+          },
+          {
+            loader: 'air-m2-builder2/src/webpack-strip-block.js',
+            options: {
+              blocks: [
+                ['<debug>', '</debug>'],
+                ['<@debug>', '</@debug>'],
+                ['debug:start', 'debug:end'],
+              ]
+            }
+          },
         ]
       }
     );

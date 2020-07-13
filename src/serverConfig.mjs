@@ -25,6 +25,7 @@ export default function serverConfig (options = {}) {
   const m2units = argv['m2units'];
   const devServer = argv['dev-server'];
   const buildMode = argv['build-mode'] || argv['dev-server'] === true && 'development' || 'production';
+  console.log('BUILD MODE:', buildMode);
   const revision = argv['revision'] || null;
   const directDependenciesOnly = !!argv['direct-dependencies-only'] || false;
 

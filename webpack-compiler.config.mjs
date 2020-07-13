@@ -32,15 +32,6 @@ export default ({ entry, path, filename, buildMode, resolve = null }) => {
       test: /\.m?js$/,
       use: [
         {
-          loader: 'air-m2-builder2/src/webpack-strip-block.js',
-          options: {
-            blocks: [
-              ['<@debug>', '</@debug>'],
-              ['debug:start', 'debug:end'],
-            ]
-          }
-        },
-        {
           loader: 'babel-loader',
           options: {
             presets: [
@@ -54,7 +45,17 @@ export default ({ entry, path, filename, buildMode, resolve = null }) => {
               ]
             ]
           }
-        }
+        },
+        {
+          loader: 'air-m2-builder2/src/webpack-strip-block.js',
+          options: {
+            blocks: [
+              ['<debug>', '</debug>'],
+              ['<@debug>', '</@debug>'],
+              ['debug:start', 'debug:end'],
+            ]
+          }
+        },
       ]
     });
   }
